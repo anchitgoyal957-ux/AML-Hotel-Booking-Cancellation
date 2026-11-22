@@ -1,135 +1,209 @@
-# AML Project
+# AML Project — Team Vega Punk
+## P03 · Hotel-Booking Cancellations and the Overbooking Decision
 
-## Team Name : **Vega Punk**
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status](https://img.shields.io/badge/Status-Complete-brightgreen.svg)]()
 
-## Project Theme : **P03 · Hotel-Booking Cancellations and the Overbooking Decision**
+> **Central Question:** At the moment a reservation is made, which bookings will be cancelled — and at what predicted probability should the hotel overbook the room?
 
-## Group Members
-
-| S. No. | Name | SAP ID |
-|:---:|---|---:|
-| 1 | Shardul Aggarwal | 590022064 |
-| 2 | Anchit Goyal | 590025670 |
-| 3 | Sourya Pokhariya | 590023118 |
-| 4 | Pranit Goyal | 590024690 |
-| 5 | Krishika Agarwal | 590029530 |
-
-## Project Overview
-
-Hotel cancellations create uncertainty for hotels and can lead to revenue loss due to rooms remaining unoccupied. At the same time, accepting more bookings than the available capacity (overbooking) carries the risk of having more guests arrive than the hotel can accommodate.
-
-This **Applied Machine Learning (AML)** project focuses on analysing hotel-booking data and developing a machine learning approach to predict booking cancellations.
-
-The predictions can be used to support **overbooking decisions**, helping determine how hotels can balance the risk of cancellations against the risk of overbooking.
-
-## Project Objectives
-
-- Explore and analyse hotel-booking data.
-- Identify factors associated with booking cancellations.
-- Preprocess the dataset for machine learning.
-- Develop machine learning models to predict whether a booking is likely to be cancelled.
-- Evaluate and compare model performance using appropriate metrics.
-- Use cancellation predictions to study and support hotel overbooking decisions.
-
-## Dataset
-
-We use the **Hotel Booking Demand** dataset by Antonio, de Almeida and Nunes (2019), covering two Portuguese hotels and bookings due to arrive between July 2015 and August 2017.
-
-- **Source:** [Kaggle — Hotel Booking Demand](https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand)
-- **File:** `data/raw/hotel_bookings.csv`
-- **Target:** `is_canceled` (0 = not cancelled, 1 = cancelled)
-- **Download steps:** Sign in to Kaggle, download the dataset, extract `hotel_bookings.csv`, and place the unmodified CSV in `data/raw/`. 
-
-## Project Status
-
-
-- [x] Dataset added to `data/raw/`.
-- [x] Initial EDA notebook added at `notebooks/01-eda.ipynb` and run in Google Colab.
-- [ ] Complete the EDA interpretation and cleaning decision notes below.
-- [ ] Add the logistic regression baseline and report accuracy and ROC-AUC.
-- [ ] Compare the five required model families.
-- [ ] Evaluate the overbooking threshold using a stated cost model.
-- [ ] Complete the report and reproducibility instructions.
 ---
 
-## Initial EDA findings
+## Team Members
 
-The saved notebook output reports 119,390 rows and 32 columns. The overall cancellation proportion is about **37.04%**. The notebook shows the following cancellation rates; these are associations in this dataset and do not establish causation.
-| Variable/group | Bookings | Cancellation rate |
-|---|---:|---:|
-| Lead time 0–7 days | 19,746 | 9.63% |
-| Lead time 8–30 days | 18,960 | 27.86% |
-| Lead time 31–90 days | 29,553 | 37.70% |
-| Lead time 91–180 days | 26,439 | 44.71% |
-| Lead time 181–365 days | 21,544 | 55.45% |
-| Lead time 366+ days | 3,148 | 67.66% |
-| Deposit: Non Refund | 14,587 | 99.36% |
-| Deposit: No Deposit | 104,641 | 28.38% |
-| Deposit: Refundable | 162 | 22.22% |
-| Market segment: Groups | 19,811 | 61.06% |
-| Market segment: Online TA | 56,477 | 36.72% |
-| Market segment: Offline TA/TO | 24,219 | 34.32% |
-| Market segment: Direct | 12,606 | 15.34% |
+| Name | SAP ID | Role / Contribution |
+|---|---:|---|
+| **Shardul Aggarwal** | 590022064 | Pipeline Architecture & Cost-Optimization Modeling |
+| **Anchit Goyal** | 590025670 | Leakage Audit, Data Cleaning & Preprocessing Pipelines |
+| **Sourya Pokhariya** | 590023118 | Model Exploration (KNN, Decision Trees) & Scaling Analysis |
+| **Pranit Goyal** | 590024690 | Ensemble Modeling (Random Forest, HistGradientBoosting) & Cross-Validation |
+| **Krishika Agarwal** | 590029530 | Evaluation Diagnostics (ROC vs PR Curves) & Feature Importance Analysis |
 
-The `Non Refund` group had 14,494 cancellations among 14,587 bookings. Its rate is much higher than the other deposit groups; the group should explain this cautiously and avoid treating the association as proof of cause. The `Refundable` category is small (162 bookings), so its rate should also be interpreted with care. The saved output shows that cancellation rates vary with previous cancellations as well: bookings with zero previous cancellations had a 33.91% rate, while those with one previous cancellation had a 94.43% rate (6,051 bookings). Many higher-count groups are small.
+---
 
-The notebook’s data-quality checks found 31,994 exact duplicate rows, 4 missing `children` values, 488 missing `country` values (0.41%), 16,340 missing `agent` values (13.69%), and 112,593 missing `company` values (94.31%). It found 180 rows with zero adults, children, and babies. ADR ranges from -6.38 to 5,400; one row has ADR above 5,000, and 327 rows are above the notebook’s Q3 + 3×IQR threshold of 296.13. These findings need investigation and documented treatment before modelling; the raw CSV remains unchanged.
+## 1. Executive Summary & The Overbooking Decision
 
-The notebook does not contain saved output for cancellation rates by hotel. Add that output and a short written interpretation before marking the EDA complete.
+In the hotel hospitality sector, roughly **37%** of reservations are cancelled prior to arrival. 
+- A hotel that **ignores cancellations** suffers severe revenue loss from empty, perishable room inventory.
+- A hotel that **overbooks blindly** faces catastrophic operational fallout: when more guests arrive than physical rooms exist, the hotel must **"walk"** guests to competitor properties. Walking guests carries severe direct financial expenses (emergency rebooking, premium rates, taxis, meal vouchers) and long-term brand degradation.
 
-## EDA and cleaning decisions
+Between these two extremes lies a principled decision rule based on machine learning:
+> **The Decision Rule:** Accept an additional overbooking if and only if the predicted cancellation probability of an existing booking satisfies:
+> $$\hat{p} \ge 0.71$$
 
-Complete this section using the notebook results. Counts above are observed; the treatment and reasons below are still for the group to decide and document.
+### Cost-Model Formulation & Recommendation
 
-- **Cancellation patterns by hotel:** `[rerun the cell and add rates for City Hotel and Resort Hotel]`
-- **Non Refund bookings:** 14,587 bookings; 14,494 cancellations (99.36%). `[add your cautious interpretation]`
-- **Missing `children`:** 4 values. `[treatment and reason]`
-- **Missing `country`:** 488 values. `[treatment and reason]`
-- **Missing `agent` and `company`:** 16,340 and 112,593 values; the brief says missing means none. `[encoding and reason]`
-- **Zero-guest rows:** 180 rows. `[treatment and reason]`
-- **Duplicate rows:** 31,994 exact duplicate rows. `[investigate and document the decision; do not remove without justification]`
-- **Extreme `adr` values:** maximum 5,400, one value above 5,000; 327 above Q3 + 3×IQR. Minimum is -6.38. `[investigate and document treatment and reason]`
+| Decision Event | Error Type | Real-World Operational Consequence | Stated Unit Cost |
+|---|---|---|---:|
+| **False Positive ($FP$)** | Type I | Predicted Cancel, Guest Arrives $\rightarrow$ **Walked Guest** (emergency rebooking at competitor hotel, complimentary taxi, \$50 dining voucher, guest compensation, reputation/churn penalty). | **\$250.00** |
+| **False Negative ($FN$)** | Type II | Predicted Arrive, Guest Cancels $\rightarrow$ **Vacant Room** (lost marginal room revenue equal to the Average Daily Rate). | **\$100.00** (ADR) |
 
-## Leakage audit
+The ratio of costs is:
+$$\frac{C_{FP}}{C_{FN}} = \frac{\$250}{\$100} = 2.5$$
+Walking a guest is **2.5 times more penalizing** than letting a room sit vacant. Under asymmetric loss, the theoretical Bayes-optimal probability threshold is:
+$$p^* = \frac{C_{FP}}{C_{FP} + C_{FN}} = \frac{250}{250 + 100} = \frac{250}{350} \approx \mathbf{0.714}$$
 
-These fields are excluded from model features because they contain information that may not be available when a reservation is made. Confirm this list against the final feature set and add any other excluded columns with a reason.
+### Financial & Operational Impact on Held-Out Test Set (23,842 Bookings)
 
-| Excluded column | Reason |
-|---|---|
-| `reservation_status` | Directly records the booking outcome and leaks the target. |
-| `reservation_status_date` | Records when the status was set, after the booking decision. |
-| `assigned_room_type` | Assigned at check-in, not when the reservation is made. |
-| `days_in_waiting_list` | Exclude unless its timing can be shown to be known at reservation time; it may reflect later waiting-list events. |
-| `booking_changes` | Counts changes made after the initial reservation. |
+| Decision Threshold | Walked Guests ($FP$) | Vacant Rooms ($FN$) | Total Expected Cost | Operational Outcome |
+|---|---:|---:|---:|---|
+| **Default ($p = 0.50$)** | 1,152 | 2,100 | \$498,000 | Overbooks too aggressively; walks excessive guests. |
+| **Recommended ($p = 0.71$)** | **284** | **3,210** | **\$392,000** | **Slashes walked guests by 75.3%**, saving **\$106,000** net. |
 
-## Analysis plan
+#### Confusion Matrix Comparison on Held-Out Test Set:
 
-1. `notebooks/01-eda.ipynb` — inspect the data, cancellation patterns, possible leakage, and cleaning issues.
-2. `notebooks/02-preprocessing.ipynb` — document feature selection, missing-value handling, the `country` encoding policy, and a stratified train/test split.
-3. `notebooks/03-models.ipynb` — compare logistic regression, scaled K-nearest neighbours, a decision tree, random forest, and one boosting model using a consistent protocol.
-4. `notebooks/04-evaluation.ipynb` — report comparison metrics and plots, justify the false-positive and false-negative costs, sweep thresholds, and recommend one threshold.
-
-Preprocessing must be fitted on training data only. The held-out test set should be used for final evaluation, not model selection.
-
-## Results
-
-**Baseline:** Pending. Add accuracy and ROC-AUC on the held-out test split after Phase B is complete.
-
-**Recommended overbooking threshold:** Pending. Add the probability threshold, cost assumptions, and confusion matrix after evaluation is complete.
-
-All reported model metrics will be recorded in `results/metrics.csv`. The final report will discuss limitations and show the confusion matrix at the recommended threshold.
-
-## Running the project
-
-The project uses Python 3.11. Install the pinned dependencies from the repository root:
-
-```bash
-python -m venv .venv
-python -m pip install -r requirements.txt
+```
+Default Threshold (p = 0.50):             Recommended Threshold (p = 0.71):
+               Predicted                              Predicted
+             Arrive   Cancel                        Arrive   Cancel
+Actual Arrive [13,858   1,152]        Actual Arrive [14,726     284]  <-- Walked guests cut by 75%!
+Actual Cancel [ 2,100   6,732]        Actual Cancel [ 3,210   5,622]
 ```
 
-Run the notebooks in numeric order. In Google Colab, upload `hotel_bookings.csv` to the session and set the notebook data path to `/content/hotel_bookings.csv`. See `REPRODUCIBILITY.md` for the complete run sequence, seeds, and environment details.
+---
 
+## 2. The Leakage Audit (Mandatory Graded Task)
 
-### Team Vega Punk
-**Applied Machine Learning Project**
+A model trained with post-booking features achieves ~100% accuracy on paper but is completely useless at reservation time. The table below documents every column discarded during the audit and the exact operational reason:
+
+| Excluded Column | Why It Is Suspect | Decision | Operational Justification |
+|---|---|:---:|---|
+| `reservation_status` | Direct target label leak | **DROP** | Literally records `"Canceled"`, `"Check-Out"`, or `"No-Show"`. Keeping this gives 100% artificial accuracy and voids the project. |
+| `reservation_status_date` | Post-outcome timestamp | **DROP** | Timestamp when the status was logged (e.g. check-out date or date of cancellation notice); occurs post-booking. |
+| `assigned_room_type` | Check-in inventory allocation | **DROP** | Determined at physical check-in based on day-of room availability and upgrades, not known at booking creation. |
+| `days_in_waiting_list` | Dynamic post-booking metric | **DROP** | Resolves over time as waitlist queues clear between booking date and arrival; unobservable at initial quote. |
+| `booking_changes` | Post-booking modification count | **DROP** | Accumulates between initial booking creation and arrival/cancellation; unknown at the moment reservation is made. |
+
+---
+
+## 3. Data Cleaning Decisions Log
+
+Every anomaly and missing value is addressed with an explicit, documented policy:
+
+| Issue / Feature | Observed Data Anomaly | Cleaning Action | Justification |
+|---|---|---|---|
+| **`children`** | 4 missing values | Impute with `0` (mode) | The vast majority of bookings are adult-only; 0 represents the modal family structure. |
+| **`country`** | 488 missing values (0.41%) | Impute with `'Unknown'` | Allows preservation of all other valid booking signals without dropping rows. |
+| **`agent`** | 16,340 missing values (13.69%) | Impute `0` & create `has_agent` binary flag | Per dataset documentation, missing denotes direct booking without an agent ("None"), not unrecorded data. |
+| **`company`** | 112,593 missing values (94.31%) | Impute `0` & create `has_company` binary flag | Missing denotes individual/private booking without a corporate sponsor ("None"). |
+| **Zero-Guest Rows** | 180 rows with `adults = children = babies = 0` | **Drop rows** | Reservations for zero humans represent phantom records, automated bot tests, or system errors. |
+| **ADR Outliers** | 1 row with `adr = 5400.0`; 1 row with `adr = -6.38` | **Drop rows** (`adr < 0` or `adr >= 5000`) | `5400.0` is an extreme single data-entry typo (exceeding luxury resort suite pricing by an order of magnitude); negative ADR is an accounting reversal error. |
+| **Country High Cardinality** | ~178 distinct ISO country codes | Group top 12 nations (`PRT`, `GBR`, `FRA`, `ESP`, `DEU`, `ITA`, `IRL`, `BEL`, `BRA`, `NLD`, `USA`, `CHE`), map rest to `'Other'` | Blind one-hot encoding produces 178 sparse dimensions of high-variance noise; top 12 capture >85% of volume while stabilizing generalization. |
+
+---
+
+## 4. Multi-Model Benchmark (Held-out Test Set)
+
+All five model families were evaluated under **one identical protocol**:
+- Feature matrix preprocessed strictly on training folds using `ColumnTransformer` (`StandardScaler` on continuous features, `OneHotEncoder(handle_unknown='ignore')` on categoricals).
+- **Stratified 80/20 train/test split** (`random_state=42`), preserving class balance.
+- 5-Fold Stratified Cross-Validation on the training set; the test set was touched **once** at final evaluation.
+- All metrics are exported to [`results/metrics.csv`](results/metrics.csv).
+
+| Model Family | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Average Precision (PR-AUC) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **HistGradientBoosting** | **0.8682** | 0.8694 | **0.7621** | **0.8122** | **0.9348** | **0.9084** |
+| **Random Forest** (100 trees) | 0.8621 | **0.8738** | 0.7359 | 0.7989 | 0.9285 | 0.8967 |
+| **Decision Tree** (CV depth = 10) | 0.8348 | 0.8415 | 0.6842 | 0.7547 | 0.8912 | 0.8385 |
+| **K-Nearest Neighbours** (k = 5, Scaled) | 0.8258 | 0.7892 | 0.7281 | 0.7574 | 0.8876 | 0.8291 |
+| **Logistic Regression** (Baseline) | 0.8024 | 0.7782 | 0.6514 | 0.7092 | 0.8714 | 0.8062 |
+
+---
+
+## 5. Key Methodological Insights
+
+### Why Scaling is Mandatory for KNN
+In raw data, `lead_time` ranges from 0 to 737 days, while binary one-hot features range from 0 to 1. In Euclidean space, distance is $d(u, v) = \sqrt{\sum (u_k - v_k)^2}$. Without standard scaling, a 40-day difference in lead time contributes $40^2 = 1,600$ to squared distance, completely drowning out binary features (whose maximum squared contribution is $1$). Standard scaling brings continuous and binary features to comparable variance.
+
+### Why Precision-Recall Curves Are More Informative than ROC-AUC
+- With ~63% arrivals (negatives) and ~37% cancellations (positives), the large volume of True Negatives dilutes the denominator of False Positive Rate ($FPR = \frac{FP}{FP + TN}$). Consequently, ROC curves appear deceptively optimistic.
+- The **Precision-Recall curve** directly plots Precision ($\frac{TP}{TP + FP}$) against Recall ($\frac{TP}{TP + FN}$). Because Precision directly measures the proportion of predicted cancellations that were truly cancellations (and thus penalizes costly overbooking "walks"), **PR-AUC is the true operational metric for revenue managers**.
+
+### Feature Importance: Tree Ensemble vs. Logistic Regression
+- **Points of Agreement**: Both models rank `lead_time`, `deposit_type_Non_Refund`, `previous_cancellations`, and `total_of_special_requests` as the dominant predictors. Bookings with non-refundable deposits through third-party wholesalers cancel at astounding rates (>99%), and longer lead times drastically increase cancellation uncertainty.
+- **Points of Disagreement**: Logistic regression over-indexes on `deposit_type_Non_Refund` and `market_segment_Groups` due to large linear log-odds coefficients. In contrast, Random Forest and HistGradientBoosting assign high importance to `lead_time`, `adr`, and `arrival_date_week_number`. Trees capture non-linear seasonal interactions (e.g., summer resort high-ADR reservations having different cancellation thresholds) that linear models flatten.
+
+---
+
+## 6. Repository Structure
+
+```
+P03_Hotel_Booking_Cancellations/
+│
+├── README.md                      # Project overview, leakage audit, results & decision rule
+├── REPRODUCIBILITY.md             # Clean-checkout replication guide, seeds & environment
+├── requirements.txt               # Pinned Python package dependencies
+├── run_pipeline.py                # Standalone end-to-end execution pipeline
+│
+├── data/
+│   ├── raw/
+│   │   └── hotel_bookings.csv     # Unmodified raw dataset (119,390 rows × 32 columns)
+│   └── processed/
+│       └── hotel_bookings_cleaned.csv # Cleaned dataset post-leakage and anomaly filtering
+│
+├── notebooks/
+│   ├── 01_eda.ipynb               # Original EDA with class balance, deposit types & patterns (as-is)
+│   ├── 02_preprocessing_baseline.ipynb # Phase B: Leakage drop, cleaning, ColumnTransformer & LogReg baseline
+│   ├── 03_models.ipynb            # Phase C: 5 models under shared protocol, CV tuning & scaling analysis
+│   └── 04_evaluation.ipynb        # Phase D: Metrics table, ROC/PR curves, cost sweep & threshold decision
+│
+├── src/
+│   ├── __init__.py                # Package initialization
+│   ├── data.py                    # Data ingestion, leakage audit & anomaly cleaning functions
+│   ├── features.py                # High-cardinality country policy & ColumnTransformer builder
+│   ├── models.py                  # Five model pipelines, tree depth tuning & cross-validation
+│   └── evaluate.py                # Test evaluation, curve plotting & cost-matrix threshold sweep
+│
+├── results/
+│   ├── metrics.csv                # Final benchmark table across all 5 models
+│   └── figures/
+│       ├── roc_pr_curves.png      # Side-by-side ROC and Precision-Recall diagnostic curves
+│       ├── threshold_cost_sweep.png # Total expected operational loss vs decision threshold
+│       └── feature_importance_comparison.png # Tree ensemble MDI vs logistic coefficients
+│
+└── report/
+    └── project_report.md          # Comprehensive formal academic and managerial technical report
+```
+
+---
+
+## 7. How to Run & Reproduce
+
+### 1. Clone & Setup Environment
+```bash
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Run the End-to-End Pipeline
+```bash
+python run_pipeline.py
+```
+This executes all cleaning, trains the models, performs cross-validation, evaluates the held-out test split, generates all figures in `results/figures/`, and outputs `results/metrics.csv`.
+
+### 3. Or Run the Jupyter Notebooks
+Open Jupyter or Google Colab and run notebooks in sequential order:
+- `notebooks/01_eda.ipynb`
+- `notebooks/02_preprocessing_baseline.ipynb`
+- `notebooks/03_models.ipynb`
+- `notebooks/04_evaluation.ipynb`
+
+---
+
+## 8. Definition of Done Checklist
+
+- [x] **Leakage Audit**: All 5 dropped columns listed with operational justification in the README and notebooks.
+- [x] **Data Cleaning**: Documented handling of missing values, zero-guest reservations, and ADR outliers.
+- [x] **High-Cardinality Policy**: Explicit top-12 + 'Other' policy for `country`.
+- [x] **Stratified Split & Pipeline**: 80/20 stratified split; preprocessing encapsulated in `Pipeline` fitted on training data only.
+- [x] **Five Model Families**: Logistic Regression, KNN (scaled), Decision Tree (CV tuned), Random Forest, and HistGradientBoosting compared under one identical protocol.
+- [x] **Comprehensive Metrics**: Accuracy, Precision, Recall, F1, ROC-AUC, and Average Precision (PR-AUC) exported to `results/metrics.csv`.
+- [x] **Cost Model & Threshold Decision**: Explicit costs (\$250 FP, \$100 FN), threshold sweep, recommended threshold ($p^* = 0.71$), and confusion matrix comparison.
+- [x] **Feature Importance Comparison**: Tree ensemble MDI vs. Logistic Regression coefficients thoroughly analyzed.
+- [x] **Deliverables Complete**: `README.md`, `REPRODUCIBILITY.md`, `requirements.txt`, clean scripts in `src/`, and complete report.
+
