@@ -13,9 +13,9 @@
 
 | Name | SAP ID | Role / Contribution |
 |---|---:|---|
+| **Sourya Pokhariya** | 590023118 | Model Exploration (KNN, Decision Trees) & Scaling Analysis |
 | **Shardul Aggarwal** | 590022064 | Pipeline Architecture & Cost-Optimization Modeling |
 | **Anchit Goyal** | 590025670 | Leakage Audit, Data Cleaning & Preprocessing Pipelines |
-| **Sourya Pokhariya** | 590023118 | Model Exploration (KNN, Decision Trees) & Scaling Analysis |
 | **Pranit Goyal** | 590024690 | Ensemble Modeling (Random Forest, HistGradientBoosting) & Cross-Validation |
 | **Krishika Agarwal** | 590029530 | Evaluation Diagnostics (ROC vs PR Curves) & Feature Importance Analysis |
 
